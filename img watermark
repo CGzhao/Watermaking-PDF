@@ -1,0 +1,90 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Fri Jan 18 15:44:38 2019
+"""
+#encoding=utf-8
+#author: Yangfan Zhao
+#function:给pdf添加水印
+from PIL import Image, ImageDraw, ImageFont
+from PyPDF2 import PdfFileWriter, PdfFileReader
+from reportlab.pdfgen import canvas
+#所有路径为绝对路径
+from reportlab.lib.units import cm
+import pandas as pd
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.cidfonts import UnicodeCIDFont  
+pdfmetrics.registerFont(UnicodeCIDFont('STSong-Light'))
+import math
+#水印格式设置
+
+def create_watermarkjpg(text,mark_jpg):
+    font = ImageFont.truetype('arial.ttf',50)
+    w_pdf=30*cm
+    h_pdf=21*cm
+    textImageW = int(w_pdf*1.6)
+    textImageH = int(h_pdf*2)
+    button_size=(textImageW,textImageH)
+# create image with correct size and black background
+    button_img = Image.new('RGB', button_size, "white")
+# put text on button with 10px margins
+    button_draw = ImageDraw.Draw(button_img)
+
+    textW,textH=font.getsize(text)
+    button_draw.text([(textImageW-textW)/2,(textImageH-textH)/2], text, font=font,fill=(0,0,0))
+#旋转文字
+    textRotate=button_img.rotate(45)
+#textRotate.save("output.jpg", "JPEG")
+
+    rLen = math.sqrt((textW/2)**2+(textH/2)**2)   
+    oriAngle = math.atan(textH/textW)
+    cropW = rLen*math.cos(oriAngle + math.pi/4)*2  #被截取区域的宽高
+    cropH = rLen*math.sin(oriAngle + math.pi/4)*2 
+    box = [int((textImageW-cropW)/2-10),int((textImageH-cropH)/2-1)-40,int((textImageW+cropW)/2+10),int((textImageH+cropH)/2+10)]
+    textIm = textRotate.crop(box)
+    # save in new file
+    textIm.save("output.jpg", "PNG")
+    #def create_watermark(mark_jpg):
+    #默认大小为21cm*29.7cm
+    f_pdf='mark.pdf'
+    c = canvas.Canvas(f_pdf, pagesize = (w_pdf, h_pdf)) 
+    c.translate(2*cm, 5*cm) 
+    c.scale(0.5, 0.5)                                                                                                                     
+    c.setFillAlpha(0.3)
+    print c.drawImage(mark_jpg,float((40-textIm.size[0]/28.3)/2)*cm,float((21-textIm.size[1]/28.3)/2)*cm,preserveAspectRatio=True)
+    c.save()
+    print textW,textH,textImageW,textImageH,cropW,cropH,textIm.size[0],textIm.size[1]
+#生成图片水印
+
+#添加水印和加密
+def add_watermark(pdf_file_in, pdf_file_mark, nameStr):
+    pdf_output = PdfFileWriter()
+    input_stream = open(pdf_file_in, 'rb')
+    output_stream = open(nameStr,'wb')
+    pdf_input = PdfFileReader(input_stream)
+                                                                               
+    # 获取PDF文件的页数
+    pageNum = pdf_input.getNumPages()
+    #读入水印pdf文件
+    pdf_watermark = PdfFileReader(open(pdf_file_mark, 'rb'))
+    # 给每一页打水印
+    for i in range(pageNum):
+        page = pdf_input.getPage(i)
+        page.mergePage(pdf_watermark.getPage(0))
+        page.compressContentStreams()   #压缩内容
+        pdf_output.addPage(page)
+        '''pdf_output.encrypt('0','StellarS',canPrint=0)'''
+    # nameStr当作传入参数
+    pdf_output.write(output_stream)
+inpath='names.xlsx'
+Name=pd.read_excel(inpath)
+rename= 'For Exclusive Use of '+Name
+print rename
+for i in rename.index:
+    create_watermarkjpg(rename.loc[i,'name'],'output.jpg')
+   # create_watermark("output.jpg")
+    pdfNameStr="teaser.pdf"
+    waterMarkNameStr="mark.pdf"
+    nameStr=u'星瑞资本_星座V_项目介绍 '+Name.loc[i,'name']+".pdf"
+    add_watermark(pdfNameStr,waterMarkNameStr,nameStr)
+
+
