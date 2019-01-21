@@ -1,0 +1,57 @@
+#encoding=utf-8
+#author: Yangfan Zhao
+#date: 2019-01-21
+#function:给pdf添加水印
+from PyPDF2 import PdfFileWriter, PdfFileReader
+from reportlab.pdfgen import canvas
+#所有路径为绝对路径
+from reportlab.lib.units import cm
+import pandas as pd
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.cidfonts import UnicodeCIDFont  
+pdfmetrics.registerFont(UnicodeCIDFont('STSong-Light'))
+#水印格式设置
+def create_watermark(content):
+    #默认大小为21cm*29.7cm
+    c = canvas.Canvas("mark.pdf", pagesize = (40*cm, 21*cm))
+    #移动坐标原点(坐标系左下为(0,0))
+    c.translate(7*cm, -5*cm)                                                                                                                          
+    #设置字体
+    c.setFont('STSong-Light', 40)
+    c.setFillColorRGB(0,0,0)
+    c.setFillAlpha(0.2)
+    c.rotate(45)
+    c.drawString(6*cm,6*cm,content)
+    c.save()
+#添加水印和加密
+def add_watermark(pdf_file_in, pdf_file_mark, nameStr):
+    pdf_output = PdfFileWriter()
+    input_stream = open(pdf_file_in, 'rb')
+    output_stream = open(nameStr,'wb')
+    pdf_input = PdfFileReader(input_stream)
+                                                                               
+    # 获取PDF文件的页数
+    pageNum = pdf_input.getNumPages()
+    #读入水印pdf文件
+    pdf_watermark = PdfFileReader(open(pdf_file_mark, 'rb'))
+    # 给每一页打水印
+    for i in range(pageNum):
+        page = pdf_input.getPage(i)
+        page.mergePage(pdf_watermark.getPage(0))
+        page.compressContentStreams()   #压缩内容
+        pdf_output.addPage(page)
+        '''pdf_output.encrypt('0','StellarS',canPrint=0)'''
+    # nameStr当作传入参数
+    pdf_output.write(output_stream)
+inpath='names.xlsx'
+Name=pd.read_excel(inpath)
+rename= 'For Exclusive Use of '+Name
+print rename
+for i in rename.index:
+    create_watermark(rename.loc[i,'name'])
+    pdfNameStr="teaser.pdf"
+    waterMarkNameStr="mark.pdf"
+    nameStr=u'项目介绍_ '+Name.loc[i,'name']+".pdf"
+    add_watermark(pdfNameStr,waterMarkNameStr,nameStr)
+
+
